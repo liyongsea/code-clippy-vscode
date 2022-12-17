@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import CSConfig from './config';
-import { fetchCodeCompletionTexts } from './utils/fetchCodeCompletions';
+import {getGenByTemplate} from "./api/api";
 
 export function activate(context: vscode.ExtensionContext) {
 	const disposable = vscode.commands.registerCommand(
@@ -33,27 +33,16 @@ export function activate(context: vscode.ExtensionContext) {
 
 			// Check if user's state meets one of the trigger criteria
 			if (CSConfig.SEARCH_PHARSE_END.includes(textBeforeCursor[textBeforeCursor.length - 1]) || currLineBeforeCursor.trim() === "") {
-				let rs;
-
-				try {
-					// Fetch the code completion based on the text in the user's document
-					rs = await fetchCodeCompletionTexts(textBeforeCursor, document.fileName, MODEL_NAME, API_KEY, USE_GPU);
-				} catch (err) {
-
-					if (err instanceof Error) {
-						// Check if it is an issue with API token and if so prompt user to enter a correct one
-						if (err.toString() === "Error: Bearer token is invalid" || err.toString() === "Error: Authorization header is invalid, use 'Bearer API_TOKEN'") {
-							vscode.window.showInputBox(
-								{ "prompt": "Please enter your HF API key in order to use Code Clippy", "password": true }
-							).then(apiKey => configuration.update("conf.resource.hfAPIKey", apiKey));
-
-						}
-						vscode.window.showErrorMessage(err.toString());
-					}
-					return { items: [] };
+				const result = await getGenByTemplate(textBeforeCursor);
+				const completions = Array<string>();
+				for (let i=0; i < result.data.data.length; i++) {
+					completions.push(result.data.data[i].substring(textBeforeCursor.length));
 				}
+				const rs = {
+					completions: completions,
+				};
 
-
+				
 				if (rs == null) {
 					return { items: [] };
 				}
